@@ -42,7 +42,7 @@ Environment variables (all optional, defaults shown):
 | `NORTHWIND_DB_HOST`      | `localhost`   |
 | `NORTHWIND_DB_PORT`      | `5432`        |
 | `NORTHWIND_DB_USER`      | `northwind`   |
-| `NORTHWIND_DB_PASSWORD`  | *(empty)*     |
+| `NORTHWIND_DB_PASSWORD`  | `northwind`   |
 | `NORTHWIND_DB_NAME`      | `northwind`   |
 | `MCP_HTTP_ADDR`          | `:8080`       |
 

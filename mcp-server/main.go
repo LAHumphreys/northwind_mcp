@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/afb/mcp-northwind-server/internal/db"
@@ -40,6 +41,23 @@ func main() {
 	}
 	defer pool.Close()
 
+	server := newServer(pool)
+
+	addr := envOrDefault("MCP_HTTP_ADDR", ":8080")
+	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+		return server
+	}, &mcp.StreamableHTTPOptions{Stateless: true})
+
+	log.Printf("northwind-mcp-server listening at %s/mcp", addr)
+	if err := http.ListenAndServe(addr, http.StripPrefix("", mux(handler))); err != nil {
+		log.Fatalf("server failed: %v", err)
+	}
+}
+
+// newServer builds the MCP server and registers every resource, tool and
+// prompt against the given connection pool. Kept separate from main so tests
+// can drive the server over an in-memory transport.
+func newServer(pool *pgxpool.Pool) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "northwind-mcp-server",
 		Version: "0.1.0",
@@ -195,15 +213,7 @@ func main() {
 		}, nil
 	})
 
-	addr := envOrDefault("MCP_HTTP_ADDR", ":8080")
-	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
-		return server
-	}, &mcp.StreamableHTTPOptions{Stateless: true})
-
-	log.Printf("northwind-mcp-server listening at %s/mcp", addr)
-	if err := http.ListenAndServe(addr, http.StripPrefix("", mux(handler))); err != nil {
-		log.Fatalf("server failed: %v", err)
-	}
+	return server
 }
 
 // mux routes the /mcp path to the MCP handler.

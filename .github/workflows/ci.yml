@@ -1,0 +1,55 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: northwind
+          POSTGRES_USER: northwind
+          POSTGRES_PASSWORD: northwind
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U northwind -d northwind"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: mcp-server
+    env:
+      NORTHWIND_DB_PASSWORD: northwind
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: mcp-server/go.mod
+          cache-dependency-path: mcp-server/go.sum
+
+      - name: Seed Northwind
+        run: PGPASSWORD=northwind psql -q -h localhost -U northwind -d northwind -v ON_ERROR_STOP=1 -f ../db/init/01-northwind.sql
+
+      - name: gofmt
+        run: |
+          files="$(gofmt -l .)"
+          if [ -n "$files" ]; then echo "$files"; exit 1; fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        env:
+          NORTHWIND_TEST_REQUIRE_DB: "1"
+        run: go test -race -count=1 ./...

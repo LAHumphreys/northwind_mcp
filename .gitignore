@@ -1,0 +1,17 @@
+# Go build output
+/bin/
+/mcp-server/mcp-northwind-server
+/mcp-server/mcp-northwind-server.exe
+*.test
+*.out
+coverage.*
+
+# Local config / secrets
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.idea/
+*.swp
+.DS_Store
