@@ -7,10 +7,27 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/afb/mcp-northwind-server/internal/db"
 )
+
+// requirePool connects to the Northwind database or skips the test, unless
+// NORTHWIND_TEST_REQUIRE_DB is set, in which case an unreachable DB is fatal.
+func requirePool(t *testing.T, ctx context.Context, tracer pgx.QueryTracer) *pgxpool.Pool {
+	t.Helper()
+	pool, err := db.NewPoolWithTracer(ctx, tracer)
+	if err != nil {
+		if os.Getenv("NORTHWIND_TEST_REQUIRE_DB") != "" {
+			t.Fatalf("Northwind database required but unavailable: %v", err)
+		}
+		t.Skipf("Northwind database unavailable: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	return pool
+}
 
 // TestServerSmoke drives the MCP server end to end over an in-memory transport
 // against a live Northwind database. It skips when no database is reachable
@@ -19,15 +36,7 @@ func TestServerSmoke(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	pool, err := db.NewPool(ctx)
-	if err != nil {
-		if os.Getenv("NORTHWIND_TEST_REQUIRE_DB") != "" {
-			t.Fatalf("Northwind database required but unavailable: %v", err)
-		}
-		t.Skipf("Northwind database unavailable: %v", err)
-	}
-	defer pool.Close()
-
+	pool := requirePool(t, ctx, nil)
 	server := newServer(pool)
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
 

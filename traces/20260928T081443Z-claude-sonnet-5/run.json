@@ -1,0 +1,25 @@
+{
+  "model": "claude-sonnet-5",
+  "session_id": "81380746-01fd-4140-a67d-c17a86ca3435",
+  "started": "2026-09-28T08:14:43+00:00",
+  "turns": [
+    {
+      "n": 1,
+      "prompt": "Return a product summary using the #northwind://get_products resource. List\n- The total number of active items (not discontinued)\n- The 5 items with the most stock\n- The 5 lowest-stocked items\n- The 5 items with the highest unit price",
+      "trace_start_line": 2,
+      "trace_end_line": 21
+    },
+    {
+      "n": 2,
+      "prompt": "Limit this to products costing between $50 and $100",
+      "trace_start_line": 21,
+      "trace_end_line": 31
+    },
+    {
+      "n": 3,
+      "prompt": "Are any of these items amongst our top performers?",
+      "trace_start_line": 31,
+      "trace_end_line": 46
+    }
+  ]
+}

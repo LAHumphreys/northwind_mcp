@@ -84,3 +84,26 @@ downloads Go modules, starts the container's local Postgres, seeds Northwind
 from `db/init/01-northwind.sql` and exports the `NORTHWIND_DB_*` variables, so
 `go test` and `go run .` work without Docker. It is a no-op outside remote
 sessions.
+
+## Tracing what an agent does
+
+Set `NORTHWIND_TRACE_FILE=/path/to/trace.jsonl` and the server appends one JSON
+line per event: every MCP request and response it handles (`mcp.request`,
+`mcp.response`), and for each one the SQL it ran (`sql.query` with bound args),
+the rows the query returned (`sql.rows`) and the Postgres command tag
+(`sql.result`). SQL events carry the `request_id` of the MCP request that
+caused them. See `mcp-server/internal/trace`.
+
+`scripts/agent_trace.py` uses this to record a whole conversation. It starts a
+traced server, drives a headless Claude Code agent (a real MCP client) through
+a list of prompts as one resumed session, and renders `report.md` interleaving
+the agent transcript, the MCP messages and the SQL for each turn. Runs live
+under `traces/`.
+
+```sh
+make build
+python3 scripts/agent_trace.py --model claude-sonnet-5            # built-in 3-prompt script
+python3 scripts/agent_trace.py --prompts-file my_prompts.json     # JSON array of prompts
+```
+
+Needs the `claude` CLI on PATH with credentials, and a reachable database.

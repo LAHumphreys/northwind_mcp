@@ -23,6 +23,10 @@ the full layout and workflow.
   `.env.example`. Never commit a `.env`.
 - Do not commit build output; `bin/` and the server binary are gitignored.
 - Seed SQL is vendored at `db/init/01-northwind.sql`; the DB image copies it.
+- `NORTHWIND_TRACE_FILE` enables JSONL tracing of MCP and SQL activity
+  (`mcp-server/internal/trace`). `scripts/agent_trace.py` runs a headless
+  Claude agent against a traced server and writes a report under `traces/`.
+  Each run costs real API money; do not run it casually.
 
 ## Running the containers inside Claude Code on the web
 

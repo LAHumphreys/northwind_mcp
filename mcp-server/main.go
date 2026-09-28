@@ -16,6 +16,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/afb/mcp-northwind-server/internal/db"
+	"github.com/afb/mcp-northwind-server/internal/trace"
 )
 
 const productsURI = "northwind://products"
@@ -35,13 +36,32 @@ func main() {
 
 	ctx := context.Background()
 
-	pool, err := db.NewPool(ctx)
+	// NORTHWIND_TRACE_FILE turns on JSONL tracing of every MCP request and
+	// response plus the SQL (statements, args and rows) each one triggers.
+	var (
+		recorder *trace.Recorder
+		tracer   pgx.QueryTracer
+	)
+	if path := envOrDefault("NORTHWIND_TRACE_FILE", ""); path != "" {
+		rec, err := trace.Open(path)
+		if err != nil {
+			log.Fatalf("opening trace file: %v", err)
+		}
+		defer rec.Close()
+		recorder, tracer = rec, trace.QueryTracer{}
+		log.Printf("tracing MCP and SQL activity to %s", path)
+	}
+
+	pool, err := db.NewPoolWithTracer(ctx, tracer)
 	if err != nil {
 		log.Fatalf("connecting to Northwind database: %v", err)
 	}
 	defer pool.Close()
 
 	server := newServer(pool)
+	if recorder != nil {
+		server.AddReceivingMiddleware(recorder.Middleware())
+	}
 
 	addr := envOrDefault("MCP_HTTP_ADDR", ":8080")
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {

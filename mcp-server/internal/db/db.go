@@ -7,7 +7,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/afb/mcp-northwind-server/internal/trace"
 )
 
 // Product mirrors a row of the Northwind "products" table.
@@ -64,6 +67,12 @@ type TopPerformingProduct struct {
 
 // NewPool builds a pgx connection pool from NORTHWIND_DB_* environment variables.
 func NewPool(ctx context.Context) (*pgxpool.Pool, error) {
+	return NewPoolWithTracer(ctx, nil)
+}
+
+// NewPoolWithTracer is NewPool with an optional pgx query tracer attached to
+// every connection. Pass nil for no tracing.
+func NewPoolWithTracer(ctx context.Context, tracer pgx.QueryTracer) (*pgxpool.Pool, error) {
 	host := envOrDefault("NORTHWIND_DB_HOST", "localhost")
 	port := envOrDefault("NORTHWIND_DB_PORT", "5432")
 	user := envOrDefault("NORTHWIND_DB_USER", "northwind")
@@ -72,7 +81,14 @@ func NewPool(ctx context.Context) (*pgxpool.Pool, error) {
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, password, host, port, dbname)
 
-	pool, err := pgxpool.New(ctx, dsn)
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("parsing pgx config: %w", err)
+	}
+	if tracer != nil {
+		cfg.ConnConfig.Tracer = tracer
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("creating pgx pool: %w", err)
 	}
@@ -112,6 +128,7 @@ func ListProducts(ctx context.Context, pool *pgxpool.Pool) ([]Product, error) {
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterating product rows: %w", err)
 	}
+	trace.Rows(ctx, "products", products)
 	return products, nil
 }
 
@@ -144,6 +161,7 @@ func ListCustomers(ctx context.Context, pool *pgxpool.Pool) ([]Customer, error) 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterating customer rows: %w", err)
 	}
+	trace.Rows(ctx, "customers", customers)
 	return customers, nil
 }
 
@@ -171,6 +189,7 @@ func GetCustomerInfo(ctx context.Context, pool *pgxpool.Pool, customerID string)
 		return CustomerInfo{}, fmt.Errorf("querying customer info: %w", err)
 	}
 	customer.LastOrderDate = lastOrderDate
+	trace.Rows(ctx, "customer_info", customer)
 	return customer, nil
 }
 
@@ -209,6 +228,7 @@ func GetTopPerformingProducts(ctx context.Context, pool *pgxpool.Pool, limit int
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterating top performing product rows: %w", err)
 	}
+	trace.Rows(ctx, "top_performing_products", products)
 	return products, nil
 }
 
