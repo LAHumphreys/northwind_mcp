@@ -1,0 +1,28 @@
+# Compose override for the Claude Code on the web sandbox ONLY. Egress there goes
+# through a TLS-intercepting proxy on the host loopback, so the Go build stage
+# runs on the host network and trusts the sandbox CA. Mirrors
+# mcp-server/Dockerfile otherwise. Usage (from repo root):
+#   docker compose -f compose.yaml -f .claude/compose.sandbox.yaml --profile full up -d --build --wait
+services:
+  mcp:
+    build:
+      context: ./mcp-server
+      network: host
+      additional_contexts:
+        ccr: /root/.ccr
+      dockerfile_inline: |
+        FROM docker.io/library/golang:1.27 AS build
+        COPY --from=ccr ca-bundle.crt /etc/ssl/certs/ccr-ca-bundle.crt
+        ENV SSL_CERT_FILE=/etc/ssl/certs/ccr-ca-bundle.crt
+        WORKDIR /src
+        COPY go.mod go.sum ./
+        RUN --mount=type=cache,target=/go/pkg/mod go mod download
+        COPY . .
+        RUN --mount=type=cache,target=/go/pkg/mod \
+            --mount=type=cache,target=/root/.cache/go-build \
+            CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mcp-northwind-server .
+
+        FROM gcr.io/distroless/static-debian12:nonroot
+        COPY --from=build /out/mcp-northwind-server /mcp-northwind-server
+        EXPOSE 8080
+        ENTRYPOINT ["/mcp-northwind-server"]

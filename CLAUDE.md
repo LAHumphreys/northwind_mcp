@@ -23,3 +23,19 @@ the full layout and workflow.
   `.env.example`. Never commit a `.env`.
 - Do not commit build output; `bin/` and the server binary are gitignored.
 - Seed SQL is vendored at `db/init/01-northwind.sql`; the DB image copies it.
+
+## Running the containers inside Claude Code on the web
+
+Docker works in the sandbox but needs three workarounds (verified once):
+
+1. The daemon is not running: `nohup dockerd >/tmp/dockerd.log 2>&1 &`.
+2. Stop the hook-started local Postgres first so compose can bind 5432:
+   `pg_ctlcluster 16 main stop`.
+3. Build through `.claude/compose.sandbox.yaml`, which runs the Go build stage
+   on the host network with the sandbox CA. If Docker Hub answers 429, pull the
+   base image from `mirror.gcr.io/library/<image>` and `docker tag` it to the
+   `docker.io/library/<image>` name; buildkit then uses the local copy.
+
+```sh
+docker compose -f compose.yaml -f .claude/compose.sandbox.yaml --profile full up -d --build --wait
+```
